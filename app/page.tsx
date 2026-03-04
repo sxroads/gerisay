@@ -51,10 +51,14 @@ function calculateTodayRemainingHours(): {
 	}
 
 	const endOfWorkDay = new Date(now);
+	const startOfWorkDay = new Date(now);
 	endOfWorkDay.setHours(17, 0, 0, 0);
+	startOfWorkDay.setHours(8, 0, 0, 0);
 
 	// If current time >= 17:00, return 0
 	if (now >= endOfWorkDay) {
+		return { hours: 0, minutes: 0, seconds: 0 };
+	} else if (now < startOfWorkDay) {
 		return { hours: 0, minutes: 0, seconds: 0 };
 	}
 
@@ -114,41 +118,39 @@ function formatTime(hours: number, minutes: number, seconds: number): string {
 }
 
 export default function Home() {
-	const [targetDate, setTargetDate] = useState<string>("");
-	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-	const [workDays, setWorkDays] = useState<number | null>(null);
-	const [isLoaded, setIsLoaded] = useState(false);
-	const [todayRemaining, setTodayRemaining] = useState<{
-		hours: number;
-		minutes: number;
-		seconds: number;
-	}>({ hours: 0, minutes: 0, seconds: 0 });
-	const [totalRemaining, setTotalRemaining] = useState<{
-		hours: number;
-		minutes: number;
-		seconds: number;
-	}>({ hours: 0, minutes: 0, seconds: 0 });
+	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
+		undefined
+	);
+	const [todayRemaining, setTodayRemaining] = useState({
+		hours: 0,
+		minutes: 0,
+		seconds: 0,
+	});
+	const [totalRemaining, setTotalRemaining] = useState({
+		hours: 0,
+		minutes: 0,
+		seconds: 0,
+	});
+
+	const isLoaded = selectedDate !== undefined;
+	const targetDate = selectedDate
+		? selectedDate.toISOString().split("T")[0]
+		: "";
+	const workDays = selectedDate ? calculateWorkDays(selectedDate) : null;
 
 	useEffect(() => {
-		const storedDate = localStorage.getItem("targetDate");
-		if (storedDate) {
-			setTargetDate(storedDate);
-			const date = new Date(storedDate);
-			setSelectedDate(date);
-			const days = calculateWorkDays(date);
-			setWorkDays(days);
-		}
-		setIsLoaded(true);
+		queueMicrotask(() => {
+			const storedDate = localStorage.getItem("targetDate");
+			setSelectedDate(storedDate ? new Date(storedDate) : null);
+		});
 	}, []);
 
 	useEffect(() => {
-		if (selectedDate && isLoaded) {
-			const dateString = selectedDate.toISOString().split("T")[0];
-			setTargetDate(dateString);
-			const days = calculateWorkDays(selectedDate);
-			setWorkDays(days);
-			localStorage.setItem("targetDate", dateString);
-		}
+		if (!isLoaded || !selectedDate) return;
+		localStorage.setItem(
+			"targetDate",
+			selectedDate.toISOString().split("T")[0]
+		);
 	}, [selectedDate, isLoaded]);
 
 	useEffect(() => {
@@ -165,12 +167,8 @@ export default function Home() {
 			setTotalRemaining(totalRemainingTime);
 		};
 
-		// Update immediately
 		updateCountdowns();
-
-		// Update every second
 		const interval = setInterval(updateCountdowns, 1000);
-
 		return () => clearInterval(interval);
 	}, [selectedDate, isLoaded]);
 
@@ -179,23 +177,21 @@ export default function Home() {
 	};
 
 	const handleClear = () => {
-		setTargetDate("");
 		setSelectedDate(null);
-		setWorkDays(null);
 		localStorage.removeItem("targetDate");
 	};
 
 	if (!isLoaded) {
 		return (
-			<div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
+			<div className="flex min-h-screen items-center justify-center font-sans">
 				<div className="text-zinc-600 dark:text-zinc-400">Loading...</div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-			<main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-center gap-8 px-8 py-16 bg-white dark:bg-black">
+		<div className="flex min-h-screen items-center justify-center font-sans">
+			<main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-center gap-8 px-8 py-16">
 				<div className="flex flex-col items-center gap-6 text-center">
 					<h1 className="text-4xl font-semibold leading-tight tracking-tight text-black dark:text-zinc-50">
 						Work Days Countdown
@@ -213,9 +209,9 @@ export default function Home() {
 							</div>
 
 							<div className="flex flex-col items-center gap-4 w-full max-w-md">
-								<div className="flex flex-col items-center gap-2 p-4 rounded-lg border border-solid border-black/[.08] dark:border-white/[.145] w-full">
+								<div className="flex flex-col items-center gap-2 p-4 rounded-lg border border-solid border-black/[.08] dark:border-white/[.145] w-full bg-white/50 dark:bg-white/[.06]">
 									<p className="text-sm text-zinc-500 dark:text-zinc-400">
-										Today's remaining work hours
+										Todays remaining work hours
 									</p>
 									<div className="text-3xl font-semibold text-black dark:text-zinc-50">
 										{formatTime(
@@ -226,7 +222,7 @@ export default function Home() {
 									</div>
 								</div>
 
-								<div className="flex flex-col items-center gap-2 p-4 rounded-lg border border-solid border-black/[.08] dark:border-white/[.145] w-full">
+								<div className="flex flex-col items-center gap-2 p-4 rounded-lg border border-solid border-black/[.08] dark:border-white/[.145] w-full bg-white/50 dark:bg-white/[.06]">
 									<p className="text-sm text-zinc-500 dark:text-zinc-400">
 										Total remaining work hours
 									</p>
